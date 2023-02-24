@@ -1,0 +1,232 @@
+---
+title: "Analyzing Airline flight Delay, Occupations and Wages of Job"
+output: html_document
+date: "2023-02-04"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r - Libraries, echo=FALSE, warning=FALSE}
+# install and declare the libraries
+library(readr)
+library(tidyr)
+library(dplyr)
+library(ggplot2)
+library(corrplot)
+library(RColorBrewer)
+#install.packages("ggalluvial")
+library(ggalluvial)
+#install.packages("treemapify")
+library(treemapify)
+#install.packages("treemap")
+library(treemap)
+library(treemapify)
+library(plotly)
+```
+
+## Problem Statement
+
+
+
+### Task 1
+Generate the density plot similar to what is shown in the assignmnet
+```{r Task 1}
+# Importing the Dataset
+df_airline <- read_csv("/Users/yashjaigude/Documents/MS NEU/IE 6600 Comp Viz/Hackathon/Hackathon.csv")
+
+# Creating a copy of a data frame
+df_airline_copy <- df_airline
+
+# Obtaining the list of columns
+x <- c("carrier_delay","late_aircraft_delay", "nas_delay", "security_delay", "weather_delay")
+
+# Taking the log of the Column
+df_airline_copy[x] <- log10(df_airline_copy[x])
+
+# Taking the subset
+df_airline_copy <- df_airline_copy[,c("carrier", "carrier_delay", "late_aircraft_delay", "nas_delay", "security_delay", "weather_delay")]
+
+# Ploting the density graph and give the particular labels 
+df_airline_copy <- df_airline_copy %>% gather(delay, min, -carrier)
+ggplot(df_airline_copy, aes(x = min, fill = delay, color = delay)) + 
+  geom_density(alpha = 0.3, aes(group = delay)) + 
+  ggtitle("Density plot of carrier delay in mins") + 
+  xlab("log delay in mins (x10^x)") + 
+  ylab("Density")
+```
+
+### Output 1
+In the above code we have first created a copy of data frame which was followed by taking the subset of the data frame.
+The log fuction was used to take log value which was followed by using gather function to reshape the data. Further, the results
+were plotted using density plot.
+
+
+### Task 2:
+Generate correlation plots for arr_flights, arr_del15, arr_cancelled, arr_diverted, arr_delay, carrier_delay, weather_delay, nas_delay, security_delay and late_aircraft_delay. 
+
+```{r Task 2}
+#take the subset of the data frame
+df_corr <- subset(df_airline, select = c('arr_flights', 'arr_del15', 'arr_cancelled', 'arr_diverted', 'arr_delay', 'carrier_delay', 'weather_delay', 'nas_delay', 'security_delay', 'late_aircraft_delay'))
+# dropping the NA values from the data frame
+df_corr<-df_corr %>% drop_na()
+# get the correlation matrix of the data frame
+x = cor(df_corr)
+# plot the correlation plot of the correlation matrix of the data frame
+corrplot.mixed(x, order = 'AOE')
+```
+### Output 2
+In the code we have used subbset function to select the desried column which was followed by dropna() to remove na values.Further cor function has been used which returns values between -1 to 1.Finally we plotted our result using the corrplot.
+
+
+### Task 3
+Based on your observations from the (Dataset: airlines_delay.csv), create any visualization of your choice
+
+```{r Task 3}
+# Calculating the average arrival delay time by carrier
+df_airline_mean <- aggregate(arr_delay ~ carrier, data = df_airline, FUN = mean, na.rm = TRUE)
+colnames(df_airline_mean) <- c("carrier", "mean_arr_delay")
+
+# Plot the average arrival delay time vs carrier
+ggplot(df_airline_mean, aes(x = reorder(carrier, mean_arr_delay), y = mean_arr_delay)) +
+  geom_bar(stat = "identity", fill = "#1E90FF") +
+  labs(x = "Carrier", y = "Mean Arrival Delay Time (minutes)") +
+  ggtitle("Mean Arrival Delay Time by Carrier") +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+### Output 3
+In this code we have plotted the average arrival delay time by carrier. First we computed the mean using the aggreagte function. This was followed by plotting our results. We have also made sure to arrange the data for better readability.
+
+### Task 4
+From (Dataset: wages_jobs.csv) generate a heat map similar to the one shown below. 
+The variable Difference is defined as the difference between number of male employees and the number of female employees. 
+A negative value indicates a greater number of female than male employees. In addition to the plot critique the below visualization:
+
+```{r Task 4, fig.width=5, fig.height=5}
+
+# Loading the Dataset
+df_wage_jobs <- read_csv("/Users/yashjaigude/Documents/MS NEU/IE 6600 Comp Viz/Homework 4/wages_jobs.csv")
+
+# Renaming the Columns
+names(df_wage_jobs)[names(df_wage_jobs) == "PUMS Occupation"] <- "PUMS_Occupation"
+names(df_wage_jobs)[names(df_wage_jobs) == "Total Population"] <- "Total_Population"
+names(df_wage_jobs)[names(df_wage_jobs) == "Average Wage"] <- "Average_Wage"
+
+
+# Aggregating the data 
+df_wage_jobs<- aggregate(`Total_Population` ~ Gender + Year + `PUMS_Occupation`+ `Average_Wage`, data = df_wage_jobs, FUN = sum)
+
+df_wage_jobs_female <- subset(df_wage_jobs, Gender == 'Female')
+# take the subset  gender - Male
+df_wage_jobs_male <- subset(df_wage_jobs, Gender == 'Male')
+# apply the inner join on both male and female dataframes by year and occupation
+df_wage_jobs_diff <- inner_join(df_wage_jobs_female, df_wage_jobs_male, by = c('Year', 'PUMS_Occupation'))
+# add a column of difference and store the value of total male minus total female
+df_wage_jobs_diff$Difference <- df_wage_jobs_diff$'Total_Population.x' - df_wage_jobs_diff$'Total_Population.y'
+# plot the graph based on the difference of male and female employees 
+df_wage_jobs_diff$PUMS_Occupation <- factor(df_wage_jobs_diff$PUMS_Occupation)
+ggplot(df_wage_jobs_diff, aes(x = Year, y = PUMS_Occupation, fill= Difference)) + 
+  geom_tile(aes(width = 2L)) + 
+  scale_fill_gradientn(colors = brewer.pal(8,"Spectral")) +
+  ggtitle("Difference between number of \n Male and Female Employees") +
+  ylab('Occupation')
+```
+### Output 4
+In the above code we have renamed the columns first. Then we calulated the mean using aggreagte function in R.
+In the second stepo we have subset our data into Male and Female. Additionally, we utilized the "inner_join()" function to 
+combine two separate data frames based on their shared "year" and "occupation" values and then calculated the population 
+difference among male and female. To present our results we used ggplot() to createa graph and then assign stitable title and colour 
+scheme using ggtitle() and scale_fill_gradientn() respectively.
+
+### Task 6
+Create a stacked bar plot for the year 2018 using the axes of occupation and average wage and gender as the colour.
+
+```{r}
+#Importing the wages_jobs dataset
+df_wage_jobs <- read_csv("/Users/yashjaigude/Documents/MS NEU/IE 6600 Comp Viz/Homework 4/wages_jobs.csv") %>% drop_na()
+
+
+# Renaming the Columns
+names(df_wage_jobs)[names(df_wage_jobs) == "PUMS Occupation"] <- "PUMS_Occupation"
+names(df_wage_jobs)[names(df_wage_jobs) == "Total Population"] <- "Total_Population"
+names(df_wage_jobs)[names(df_wage_jobs) == "Average Wage"] <- "Average_Wage"
+
+# Dividing Average_Wage by 1000 and rounding it to 2 decimal
+(df_wage_jobs$Average_Wage <-  df_wage_jobs$Average_Wage / 1000)
+df_wage_jobs$Average_Wage <- round(df_wage_jobs$Average_Wage, 2)
+
+# Filtering dataset for the Year 2018
+df_wage_jobs <- filter(df_wage_jobs, df_wage_jobs$Year == "2018")
+df_wage_jobs
+
+# Plotting the stacked bar plot
+ggplot(data = df_wage_jobs, aes(x = PUMS_Occupation, y = Average_Wage, fill = Gender)) + geom_bar(stat = "identity", position = "stack") + xlab("Occupation") + ylab("Average Wage") + ggtitle("Stacked Bar Plot for Year 2018 (Scale on Y axis - 1:1000)") + theme_minimal() + theme(axis.text.x = element_text(angle=90, hjust = 1), plot.title = element_text(hjust = 0.5)) + ylim(0, 300) + geom_text(aes(label = Average_Wage), size = 3, hjust = 0.5, vjust = 3, position ="stack")
+
+```
+
+### Output 6
+
+After importing df_wage_jobs dataset, we have cleaned it by removing na values by drop_na() and renamed the column names for feasibility. Divided average_wage column by 1000 to visualize the labels effectively. 
+Mentioned the scale as 1:1000.
+Filtered dataset for the Year 2018.
+Using ggplot, plotted the stacked bar graph with geom_bar() and formatted the plot by using geom_text(), ylim() and theme() functions.
+
+### Task 7
+Create a tree map from occupations dataset. The area of each rectangle should be proportional to the number of people working in that Detailed Occupation.
+
+```{r fig, fig.width=10}
+
+#Importing occupations dataset
+df_occupations <- read_csv("/Users/yashjaigude/Documents/MS NEU/IE 6600 Comp Viz/Homework 4/occupations.csv")
+
+# Renaming the Columns
+names(df_occupations)[names(df_occupations) == "Major Occupation Group"] <- "Major_Occupation_Group"
+names(df_occupations)[names(df_occupations) == "Detailed Occupation"] <- "Detailed_Occupation"
+names(df_occupations)[names(df_occupations) == "Total Population"] <- "Total_Population"
+
+
+#Filtering for the year 2018 and using grouped data by Major_Occupation_Group and Detailed_Occupation
+occupations_filtered <- df_occupations %>% filter(Year=='2018') %>% group_by(Major_Occupation_Group, Detailed_Occupation) %>% summarise(total = Total_Population, .groups = NULL)
+
+# Creating treemap by geom_treemap from ggplot by considering quantitative variable as Total Population
+tree_map <- ggplot(occupations_filtered, aes(area = total, label = Detailed_Occupation, fill=Major_Occupation_Group, subgroup=Major_Occupation_Group)) + geom_treemap() + ggtitle("Workforce Distribution by Detailed Occupation for 2018") + geom_treemap_text(fontface = 'bold', colour = "white", place = "centre", grow = TRUE)
+
+tree_map
+```
+
+### Output 7
+Imported df_occupations dataset and renamed the columns.
+Filtered the dataset for the year 2018 and grouped by Major_Occupation_Group and Detailed_Occupation variables.
+Created treemap by geom_treemap() from ggplot and formatted the plot using geom_treemap_text() and ggtitle().
+
+### Task 8
+Explore Plotly in R here and create any chart of your choice from any of the datasets provided in this homework.
+
+```{r}
+# Query the columns to plot
+req_col <- c("carrier","year","carrier_delay")
+
+df_airline_req <- df_airline[,req_col] %>%
+mutate(across(!carrier, ~replace_na(.x, 0)))
+
+# Aggregate carrier delay column by carriers available
+df_airline_arr <- aggregate(df_airline_req$carrier_delay, by=list(carrier=df_airline_req$carrier), FUN = sum) %>%
+arrange(desc(x))
+df_airline_top5 <- head(df_airline_arr, 5)
+
+# Grouped data by year and carriers 
+df_aggregate_year <- df_airline_req %>%
+group_by(year,carrier) %>%
+summarise(Total = sum(carrier_delay)) 
+
+# Used plotly to create a plot between Total carrier delay and Year grouped by carrier
+df_airline_comb <- inner_join(df_aggregate_year, df_airline_top5, by = "carrier")
+df_plot <- plot_ly(data = df_airline_comb, x = ~year, y = ~Total, color = ~carrier,mode='line') %>% layout(title = 'Airlines Carrier Delays with Year ', plot_bgcolor = "grey", xaxis = list(title = 'Year'), yaxis = list(title = 'Total Carrier Delays'))
+df_plot
+```
+
+### Output 8
+Aggregated carrier delays by carriers available in dataset. Grouped data by Year and carriers. 
+Used plotly to create a plot between Total carrier delay and Year grouped by carriers available. Plot labels for X and Y axis are given by layout().
+
